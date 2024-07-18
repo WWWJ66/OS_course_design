@@ -12,12 +12,14 @@ main(int argc, int* argv[])
   int fds_p2c[2];     //存储父进程到子进程的文件描述符的数组
   int fds_c2p[2];     //存储子进程到父进程的文件描述符的数组
 
+  //创建管道
   if ((pipe(fds_p2c) < 0) || (pipe(fds_c2p) < 0)) {
     //创建管道失败，打印错误信息，异常退出
     fprintf(2, "pingpong:pipe() filed\n");
     exit(1);
   }
 
+  //创建子进程
   int pid = fork();
   if (pid < 0) {
     //创建子进程失败，打印错误信息并关闭文件描述符，异常退出
