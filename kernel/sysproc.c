@@ -81,6 +81,34 @@ int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
+  uint64 upg_addr;
+  int pgnum;
+  uint64 dst_addr;
+  if (argaddr(0, &upg_addr) < 0) {
+    return -1;
+  }
+  if (argint(1, &pgnum) < 0) {
+    return -1;
+  }
+  if (argaddr(2, &dst_addr) < 0) {
+    return -1;
+  }
+
+  uint64 bitmap = 0;
+
+  struct proc* p = myproc();
+  pagetable_t pagetable = p->pagetable;
+
+  for (int i = 0; i < pgnum; i++) {
+    pte_t* pte = walk(pagetable, upg_addr + PGSIZE * i, 1);
+    if (*pte & PTE_A) {
+      *pte = (*pte) & (~PTE_A);
+      bitmap = bitmap | (1L << i);
+    }
+  }
+
+  copyout(pagetable, dst_addr, (char*)&bitmap, sizeof(uint64));
+
   return 0;
 }
 #endif
