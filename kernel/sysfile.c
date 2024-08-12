@@ -323,30 +323,27 @@ sys_open(void)
     return -1;
   }
 
-  if (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)) {
-    for (int i = 0; i < NSYMLINK; i++) {
-      if (readi(ip, 0, (uint64)path, 0, MAXPATH) != MAXPATH) {
-        iunlockput(ip);
-        end_op();
-        return -1;
-      }
-      iunlockput(ip);
-      ip = namei(path);
-      if (ip == 0) {
-        end_op();
-        return -1;
-      }
-      ilock(ip);
-      if (ip->type != T_SYMLINK)
-        break;
-    }
-    if (ip->type == T_SYMLINK) {
+  int layer = 0;
+  while (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)) {
+    if (++layer == NSYMLINK) {
       iunlockput(ip);
       end_op();
       return -1;
     }
-  }
 
+    if (readi(ip, 0, (uint64)path, 0, MAXPATH) < MAXPATH) {
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+    iunlockput(ip);
+
+    if ((ip = namei(path)) == 0) {
+      end_op();
+      return -1;
+    }
+    ilock(ip);
+  }
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
     if(f)
