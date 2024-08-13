@@ -4,6 +4,10 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "fs.h"
+#include "sleeplock.h"
+#include "file.h"
+#include "fcntl.h"
 #include "defs.h"
 
 struct cpu cpus[NCPU];
@@ -140,6 +144,8 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  memset(&p->vmas, 0, sizeof(p->vmas));
 
   return p;
 }
@@ -301,6 +307,13 @@ fork(void)
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
+  for (i = 0; i < NVMA; ++i) {
+    if (p->vmas[i].used) {
+      memmove(&np->vmas[i], &p->vmas[i], sizeof(p->vmas[i]));
+      filedup(p->vmas[i].f);
+    }
+  }
+
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
@@ -350,6 +363,17 @@ exit(int status)
       struct file *f = p->ofile[fd];
       fileclose(f);
       p->ofile[fd] = 0;
+    }
+  }
+
+  for (int i = 0; i < NVMA; ++i) {
+    if (p->vmas[i].used) {
+      if (p->vmas[i].flags & MAP_SHARED && (p->vmas[i].prot & PROT_WRITE) != 0) {
+        filewrite(p->vmas[i].f, p->vmas[i].addr, p->vmas[i].len);
+      }
+      fileclose(p->vmas[i].f);
+      uvmunmap(p->pagetable, p->vmas[i].addr, p->vmas[i].len / PGSIZE, 1);
+      p->vmas[i].used = 0;
     }
   }
 
@@ -653,4 +677,48 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int mmap_alloc_page(struct proc* p, uint64 va) {
+  struct VMA* vma = 0;
+  for (int i = 0; i < NVMA; i++) {
+    if (p->vmas[i].used
+      && p->vmas[i].addr <= va && va < p->vmas[i].addr + p->vmas[i].len) {
+      vma = &p->vmas[i];
+      break;
+    }
+  }
+  if (vma == 0) {
+    return -1;
+  }
+
+  uint64 pa = (uint64)kalloc();
+  va = PGROUNDDOWN(va);
+  if (pa == 0) {
+    return -1;
+  }
+  memset((void*)pa, 0, PGSIZE);
+
+  ilock(vma->f->ip);
+  if (readi(vma->f->ip, 0, pa, va - vma->addr + vma->offset, PGSIZE) < 0) {
+    iunlock(vma->f->ip);
+    kfree((void*)pa);
+    return -1;
+  }
+  iunlock(vma->f->ip);
+
+  int pte_flags = PTE_U;
+  if (vma->prot & PROT_READ)
+    pte_flags |= PTE_R;
+  if (vma->prot & PROT_WRITE)
+    pte_flags |= PTE_W;
+  if (vma->prot & PROT_EXEC)
+    pte_flags |= PTE_X;
+
+  if (mappages(p->pagetable, va, PGSIZE, pa, pte_flags) < 0) {
+    kfree((void*)pa);
+    return -1;
+  }
+
+  return 0;
 }
