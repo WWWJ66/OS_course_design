@@ -36,7 +36,7 @@ struct dinode {
   short minor;          // Minor device number (T_DEVICE only)
   short nlink;          // Number of links to inode in file system
   uint size;            // Size of file (bytes)
-  uint addrs[NDIRECT+2];   // Data block addresses
+  uint addrs[NDIRECT + 2];// Data block addresses
 };
 
 // Inodes per block.
@@ -54,7 +54,6 @@ struct dinode {
 // Directory is a file containing a sequence of dirent structures.
 #define DIRSIZ 14
 
-//最大连接深度
 #define NSYMLINK 10
 
 struct dirent {

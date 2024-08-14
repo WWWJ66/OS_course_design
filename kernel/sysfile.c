@@ -345,18 +345,19 @@ sys_open(void)
     ilock(ip);
   }
 
-  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
-    if(f)
+  if ((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0) {
+    if (f)
       fileclose(f);
     iunlockput(ip);
     end_op();
     return -1;
   }
 
-  if(ip->type == T_DEVICE){
+  if (ip->type == T_DEVICE) {
     f->type = FD_DEVICE;
     f->major = ip->major;
-  } else {
+  }
+  else {
     f->type = FD_INODE;
     f->off = 0;
   }
@@ -364,7 +365,7 @@ sys_open(void)
   f->readable = !(omode & O_WRONLY);
   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
 
-  if((omode & O_TRUNC) && ip->type == T_FILE){
+  if ((omode & O_TRUNC) && ip->type == T_FILE) {
     itrunc(ip);
   }
 
@@ -517,7 +518,7 @@ sys_symlink(void)
   if (argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0) {
     return -1;
   }
-  
+
   begin_op();
   ip = create(path, T_SYMLINK, 0, 0);
   if (ip == 0) {

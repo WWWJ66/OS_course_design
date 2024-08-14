@@ -375,25 +375,25 @@ iunlockput(struct inode *ip)
 // Return the disk block address of the nth block in inode ip.
 // If there is no such block, bmap allocates one.
 static uint
-bmap(struct inode *ip, uint bn)
+bmap(struct inode* ip, uint bn)
 {
-  uint addr, *a;
-  struct buf *bp;
+  uint addr, * a;
+  struct buf* bp;
 
-  if(bn < NDIRECT){
-    if((addr = ip->addrs[bn]) == 0)
+  if (bn < NDIRECT) {
+    if ((addr = ip->addrs[bn]) == 0)
       ip->addrs[bn] = addr = balloc(ip->dev);
     return addr;
   }
   bn -= NDIRECT;
 
-  if(bn < NINDIRECT){
+  if (bn < NINDIRECT) {
     // Load indirect block, allocating if necessary.
-    if((addr = ip->addrs[NDIRECT]) == 0)
+    if ((addr = ip->addrs[NDIRECT]) == 0)
       ip->addrs[NDIRECT] = addr = balloc(ip->dev);
     bp = bread(ip->dev, addr);
     a = (uint*)bp->data;
-    if((addr = a[bn]) == 0){
+    if ((addr = a[bn]) == 0) {
       a[bn] = addr = balloc(ip->dev);
       log_write(bp);
     }
@@ -430,24 +430,24 @@ bmap(struct inode *ip, uint bn)
 // Truncate inode (discard contents).
 // Caller must hold ip->lock.
 void
-itrunc(struct inode *ip)
+itrunc(struct inode* ip)
 {
   int i, j;
   struct buf* bp, * bp_1;
   uint* a, * a_1;
 
-  for(i = 0; i < NDIRECT; i++){
-    if(ip->addrs[i]){
+  for (i = 0; i < NDIRECT; i++) {
+    if (ip->addrs[i]) {
       bfree(ip->dev, ip->addrs[i]);
       ip->addrs[i] = 0;
     }
   }
 
-  if(ip->addrs[NDIRECT]){
+  if (ip->addrs[NDIRECT]) {
     bp = bread(ip->dev, ip->addrs[NDIRECT]);
     a = (uint*)bp->data;
-    for(j = 0; j < NINDIRECT; j++){
-      if(a[j])
+    for (j = 0; j < NINDIRECT; j++) {
+      if (a[j])
         bfree(ip->dev, a[j]);
     }
     brelse(bp);
@@ -469,6 +469,7 @@ itrunc(struct inode *ip)
         }
         brelse(bp_1);
         bfree(ip->dev, a[i]);
+        a[i] = 0;
       }
     }
     brelse(bp);
