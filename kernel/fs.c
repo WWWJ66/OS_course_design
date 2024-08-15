@@ -379,14 +379,13 @@ bmap(struct inode* ip, uint bn)
 {
   uint addr, * a;
   struct buf* bp;
-
   if (bn < NDIRECT) {
     if ((addr = ip->addrs[bn]) == 0)
       ip->addrs[bn] = addr = balloc(ip->dev);
     return addr;
   }
-  bn -= NDIRECT;
 
+  bn -= NDIRECT;
   if (bn < NINDIRECT) {
     // Load indirect block, allocating if necessary.
     if ((addr = ip->addrs[NDIRECT]) == 0)
@@ -400,24 +399,24 @@ bmap(struct inode* ip, uint bn)
     brelse(bp);
     return addr;
   }
-  bn -= NINDIRECT;
 
+  bn -= NINDIRECT;
   if (bn < NDINDIRECT) {
+    int idx1 = bn / NINDIRECT;
+    int idx2 = bn % NINDIRECT;
     if ((addr = ip->addrs[NDIRECT + 1]) == 0)
       ip->addrs[NDIRECT + 1] = addr = balloc(ip->dev);
-
     bp = bread(ip->dev, addr);
     a = (uint*)bp->data;
-    if ((addr = a[bn / NINDIRECT]) == 0) {
-      a[bn / NINDIRECT] = addr = balloc(ip->dev);
+    if ((addr = a[idx1]) == 0) {
+      a[idx1] = addr = balloc(ip->dev);
       log_write(bp);
     }
     brelse(bp);
-
     bp = bread(ip->dev, addr);
     a = (uint*)bp->data;
-    if ((addr = a[bn % NINDIRECT]) == 0) {
-      a[bn % NINDIRECT] = addr = balloc(ip->dev);
+    if ((addr = a[idx2]) == 0) {
+      a[idx2] = addr = balloc(ip->dev);
       log_write(bp);
     }
     brelse(bp);
@@ -433,8 +432,8 @@ void
 itrunc(struct inode* ip)
 {
   int i, j;
-  struct buf* bp, * bp_1;
-  uint* a, * a_1;
+  struct buf* bp, * bp1;
+  uint* a, * a1;
 
   for (i = 0; i < NDIRECT; i++) {
     if (ip->addrs[i]) {
@@ -458,16 +457,15 @@ itrunc(struct inode* ip)
   if (ip->addrs[NDIRECT + 1]) {
     bp = bread(ip->dev, ip->addrs[NDIRECT + 1]);
     a = (uint*)bp->data;
-
     for (i = 0; i < NINDIRECT; i++) {
       if (a[i]) {
-        bp_1 = bread(ip->dev, a[i]);
-        a_1 = (uint*)bp_1->data;
+        bp1 = bread(ip->dev, a[i]);
+        a1 = (uint*)bp1->data;
         for (j = 0; j < NINDIRECT; j++) {
-          if (a_1[j])
-            bfree(ip->dev, a_1[j]);
+          if (a1[j])
+            bfree(ip->dev, a1[j]);
         }
-        brelse(bp_1);
+        brelse(bp1);
         bfree(ip->dev, a[i]);
         a[i] = 0;
       }
@@ -480,7 +478,6 @@ itrunc(struct inode* ip)
   ip->size = 0;
   iupdate(ip);
 }
-
 // Copy stat information from inode.
 // Caller must hold ip->lock.
 void
